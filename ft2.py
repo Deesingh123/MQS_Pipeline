@@ -2,13 +2,14 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import numpy as np
+import psycopg2
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(BASE_DIR, "mqs.db")
+#DB_FILE = os.path.join(BASE_DIR, "mqs.db")
 
 st.set_page_config(page_title="MQS Yield Intelligence", layout="wide", page_icon="📊",
                    initial_sidebar_state="expanded")
@@ -45,18 +46,18 @@ st.markdown(f"""
 </style>""", unsafe_allow_html=True)
 
 # ── DB LOAD ──────────────────────────────────────────────────────────────────
+def get_url():
+    return st.secrets["DATABASE_URL"]
+
 @st.cache_data(ttl=90)
 def load_data():
-    if not os.path.exists(DB_FILE):
-        return pd.DataFrame(), pd.DataFrame()
-    conn = sqlite3.connect(DB_FILE)
     try:
-        df  = pd.read_sql_query("SELECT * FROM rld1", conn)
-        hdf = pd.read_sql_query("SELECT * FROM rld1_hidden", conn)
-    except Exception:
-        df, hdf = pd.DataFrame(), pd.DataFrame()
-    conn.close()
-    return df, hdf
+        conn = psycopg2.connect(get_url(), connect_timeout=15)
+        df = pd.read_sql('SELECT * FROM rld1', conn)
+        hdf = pd.read_sql('SELECT * FROM rld1_hidden', conn)
+        conn.close(); return df, hdf
+    except Exception as e:
+        st.error(f"DB error: {e}"); return pd.DataFrame(), pd.DataFrame()
 
 # ── NUMERIC CAST ──────────────────────────────────────────────────────────────
 NUM_COLS = ['Prime_Pass','Prime_Fail','Prime_Handle','TotPass','TotFail','TotHandle',
